@@ -87,6 +87,11 @@ func (p *prefixTrie) Remove(network net.IPNet) (RangerEntry, error) {
 	return p.remove(rnet.NewNetwork(network))
 }
 
+// Get gets RangerEntry identified by given network from trie, without altering the trie.
+func (p *prefixTrie) Get(network net.IPNet) (RangerEntry, error) {
+	return p.get(rnet.NewNetwork(network))
+}
+
 // Contains returns boolean indicating whether given ip is contained in any
 // of the inserted networks.
 func (p *prefixTrie) Contains(ip net.IP) (bool, error) {
@@ -278,6 +283,24 @@ func (p *prefixTrie) remove(network rnet.Network) (RangerEntry, error) {
 	return nil, nil
 }
 
+func (p *prefixTrie) get(network rnet.Network) (RangerEntry, error) {
+	if network.Covers(p.network) {
+		if entry := p.walkDepthOnce(); entry != nil {
+			return entry, nil
+		}
+	} else if p.targetBitPosition() >= 0 {
+		bit, err := p.targetBitFromIP(network.Number)
+		if err != nil {
+			return nil, err
+		}
+		child := p.children[bit]
+		if child != nil {
+			return child.get(network)
+		}
+	}
+	return nil, nil
+}
+
 func (p *prefixTrie) childrenCount() int {
 	count := 0
 	for _, child := range p.children {
@@ -335,4 +358,24 @@ func (p *prefixTrie) walkDepth() <-chan RangerEntry {
 		close(entries)
 	}()
 	return entries
+}
+
+// walkDepthOnce walks the trie in depth order, stopping after the first result, for unit testing.
+func (p *prefixTrie) walkDepthOnce() RangerEntry {
+	if p.hasEntry() {
+		return p.entry
+	}
+	childEntriesList := []<-chan RangerEntry{}
+	for _, trie := range p.children {
+		if trie == nil {
+			continue
+		}
+		childEntriesList = append(childEntriesList, trie.walkDepth())
+	}
+	for _, childEntries := range childEntriesList {
+		for entry := range childEntries {
+			return entry
+		}
+	}
+	return nil
 }

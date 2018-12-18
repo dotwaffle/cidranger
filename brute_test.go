@@ -68,6 +68,33 @@ func TestRemoveError(t *testing.T) {
 	assert.Equal(t, ErrInvalidNetworkInput, err)
 }
 
+func TestGet(t *testing.T) {
+	ranger := newBruteRanger().(*bruteRanger)
+	_, networkIPv4, _ := net.ParseCIDR("0.0.1.0/24")
+	_, networkIPv6, _ := net.ParseCIDR("8000::/96")
+	_, notInserted, _ := net.ParseCIDR("8000::/128")
+
+	insertIPv4 := NewBasicRangerEntry(*networkIPv4)
+	insertIPv6 := NewBasicRangerEntry(*networkIPv6)
+
+	ranger.Insert(insertIPv4)
+	getIPv4, err := ranger.Get(*networkIPv4)
+	assert.NoError(t, err)
+
+	ranger.Insert(insertIPv6)
+	getIPv6, err := ranger.Get(*networkIPv6)
+	assert.NoError(t, err)
+
+	entry, err := ranger.Get(*notInserted)
+	assert.NoError(t, err)
+	assert.Nil(t, entry)
+
+	assert.Equal(t, insertIPv4, getIPv4)
+	assert.Equal(t, 1, len(ranger.ipV4Entries))
+	assert.Equal(t, insertIPv6, getIPv6)
+	assert.Equal(t, 1, len(ranger.ipV6Entries))
+}
+
 func TestContains(t *testing.T) {
 	r := newBruteRanger().(*bruteRanger)
 	_, network, _ := net.ParseCIDR("0.0.1.0/24")

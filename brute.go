@@ -57,6 +57,19 @@ func (b *bruteRanger) Remove(network net.IPNet) (RangerEntry, error) {
 	return nil, nil
 }
 
+// Get gets a RangerEntry identified by a given network from ranger, without modifying anything.
+func (b *bruteRanger) Get(network net.IPNet) (RangerEntry, error) {
+	networks, err := b.getEntriesByVersion(network.IP)
+	if err != nil {
+		return nil, err
+	}
+	key := network.String()
+	if entry, found := networks[key]; found {
+		return entry, nil
+	}
+	return nil, nil
+}
+
 // Contains returns bool indicating whether given ip is contained by any
 // network in ranger.
 func (b *bruteRanger) Contains(ip net.IP) (bool, error) {

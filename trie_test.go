@@ -437,3 +437,64 @@ func TestPrefixTrieCoveredNetworks(t *testing.T) {
 		})
 	}
 }
+
+type getNetworkTest struct {
+	version rnet.IPVersion
+	inserts []string
+	search  string
+	result  string
+	name    string
+}
+
+var getNetworkTests = []getNetworkTest{
+	{
+		rnet.IPv4,
+		[]string{"192.168.0.0/24"},
+		"10.1.0.0/16",
+		"",
+		"not a contained prefix",
+	},
+	{
+		rnet.IPv4,
+		[]string{"192.168.0.0/24", "192.168.0.0/25"},
+		"192.168.0.0/24",
+		"192.168.0.0/24",
+		"only shorter prefix",
+	},
+	{
+		rnet.IPv4,
+		[]string{"192.168.0.0/24", "192.168.0.0/25"},
+		"192.168.0.0/25",
+		"192.168.0.0/25",
+		"only longer prefix",
+	},
+	{
+		rnet.IPv4,
+		[]string{"192.168.0.0/24", "192.168.0.0/25"},
+		"192.168.0.0/26",
+		"",
+		"not too long of a prefix",
+	},
+}
+
+func TestPrefixTrieGet(t *testing.T) {
+	for _, tc := range getNetworkTests {
+		t.Run(tc.name, func(t *testing.T) {
+			trie := newPrefixTree(tc.version)
+			for _, insert := range tc.inserts {
+				_, network, _ := net.ParseCIDR(insert)
+				err := trie.Insert(NewBasicRangerEntry(*network))
+				assert.NoError(t, err)
+			}
+			var expectedEntry RangerEntry
+			if tc.result != "" {
+				_, network, _ := net.ParseCIDR(tc.result)
+				expectedEntry = NewBasicRangerEntry(*network)
+			}
+			_, snet, _ := net.ParseCIDR(tc.search)
+			entry, err := trie.Get(*snet)
+			assert.NoError(t, err)
+			assert.Equal(t, expectedEntry, entry)
+		})
+	}
+}

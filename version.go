@@ -37,6 +37,14 @@ func (v *versionedRanger) Remove(network net.IPNet) (RangerEntry, error) {
 	return ranger.Remove(network)
 }
 
+func (v *versionedRanger) Get(network net.IPNet) (RangerEntry, error) {
+	ranger, err := v.getRangerForIP(network.IP)
+	if err != nil {
+		return nil, err
+	}
+	return ranger.Get(network)
+}
+
 func (v *versionedRanger) Contains(ip net.IP) (bool, error) {
 	ranger, err := v.getRangerForIP(ip)
 	if err != nil {

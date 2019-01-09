@@ -86,13 +86,37 @@ func TestGet(t *testing.T) {
 	assert.NoError(t, err)
 
 	entry, err := ranger.Get(*notInserted)
-	assert.NoError(t, err)
+	assert.Error(t, ErrNoExactMatch, err)
 	assert.Nil(t, entry)
 
 	assert.Equal(t, insertIPv4, getIPv4)
 	assert.Equal(t, 1, len(ranger.ipV4Entries))
 	assert.Equal(t, insertIPv6, getIPv6)
 	assert.Equal(t, 1, len(ranger.ipV6Entries))
+}
+
+func TestContainsExact(t *testing.T) {
+	ranger := newBruteRanger().(*bruteRanger)
+	_, networkIPv4, _ := net.ParseCIDR("0.0.1.0/24")
+	_, networkIPv6, _ := net.ParseCIDR("8000::/96")
+	_, notInserted, _ := net.ParseCIDR("8000::/128")
+
+	insertIPv4 := NewBasicRangerEntry(*networkIPv4)
+	insertIPv6 := NewBasicRangerEntry(*networkIPv6)
+
+	ranger.Insert(insertIPv4)
+	getIPv4, err := ranger.ContainsExact(*networkIPv4)
+	assert.NoError(t, err)
+	assert.True(t, getIPv4)
+
+	ranger.Insert(insertIPv6)
+	getIPv6, err := ranger.ContainsExact(*networkIPv6)
+	assert.NoError(t, err)
+	assert.True(t, getIPv6)
+
+	entry, err := ranger.ContainsExact(*notInserted)
+	assert.NoError(t, err)
+	assert.False(t, entry)
 }
 
 func TestContains(t *testing.T) {
@@ -109,7 +133,7 @@ func TestContains(t *testing.T) {
 		name     string
 	}{
 		{net.ParseIP("0.0.1.255"), true, nil, "IPv4 should contain"},
-		{net.ParseIP("0.0.0.255"), false, nil, "IPv4 houldn't contain"},
+		{net.ParseIP("0.0.0.255"), false, nil, "IPv4 shouldn't contain"},
 		{net.ParseIP("8000::ffff"), true, nil, "IPv6 shouldn't contain"},
 		{net.ParseIP("8000::1:ffff"), false, nil, "IPv6 shouldn't contain"},
 		{append(net.ParseIP("8000::1:ffff"), byte(0)), false, ErrInvalidNetworkInput, "Invalid IP"},
@@ -151,7 +175,7 @@ func TestContainingNetworks(t *testing.T) {
 		{net.ParseIP("0.0.1.255"), []RangerEntry{entry1}, nil, "IPv4 should contain"},
 		{net.ParseIP("0.0.1.127"), []RangerEntry{entry1, entry2}, nil, "IPv4 should contain both"},
 		{net.ParseIP("0.0.0.127"), []RangerEntry{}, nil, "IPv4 should contain none"},
-		{net.ParseIP("8000::ffff"), []RangerEntry{entry3}, nil, "IPv6 should constain"},
+		{net.ParseIP("8000::ffff"), []RangerEntry{entry3}, nil, "IPv6 should contain"},
 		{net.ParseIP("8000::7fff"), []RangerEntry{entry3, entry4}, nil, "IPv6 should contain both"},
 		{net.ParseIP("8000::1:7fff"), []RangerEntry{}, nil, "IPv6 should contain none"},
 		{append(net.ParseIP("8000::1:7fff"), byte(0)), nil, ErrInvalidNetworkInput, "Invalid IP"},

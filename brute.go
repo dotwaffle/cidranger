@@ -67,7 +67,19 @@ func (b *bruteRanger) Get(network net.IPNet) (RangerEntry, error) {
 	if entry, found := networks[key]; found {
 		return entry, nil
 	}
-	return nil, nil
+	return nil, ErrNoExactMatch
+}
+
+// ContainsExact determines if an exact network prefix is contained within ranger.
+func (b *bruteRanger) ContainsExact(network net.IPNet) (bool, error) {
+	_, err := b.Get(network)
+	if err == ErrNoExactMatch {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // Contains returns bool indicating whether given ip is contained by any

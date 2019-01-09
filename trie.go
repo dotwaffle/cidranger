@@ -44,6 +44,9 @@ type prefixTrie struct {
 	entry   RangerEntry
 }
 
+// ErrNoExactMatch reports that the requested prefix can not be found.
+var ErrNoExactMatch = fmt.Errorf("exact network prefix not contained within trie")
+
 // newPrefixTree creates a new prefixTrie.
 func newPrefixTree(version rnet.IPVersion) Ranger {
 	_, rootNet, _ := net.ParseCIDR("0.0.0.0/0")
@@ -90,6 +93,19 @@ func (p *prefixTrie) Remove(network net.IPNet) (RangerEntry, error) {
 // Get gets RangerEntry identified by given network from trie, without altering the trie.
 func (p *prefixTrie) Get(network net.IPNet) (RangerEntry, error) {
 	return p.get(rnet.NewNetwork(network))
+}
+
+// ContainsExact returns boolean indicating whether a given network has an entry
+// already installed for that exact network prefix.
+func (p *prefixTrie) ContainsExact(network net.IPNet) (bool, error) {
+	_, err := p.get(rnet.NewNetwork(network))
+	if err == ErrNoExactMatch {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // Contains returns boolean indicating whether given ip is contained in any
@@ -284,21 +300,44 @@ func (p *prefixTrie) remove(network rnet.Network) (RangerEntry, error) {
 }
 
 func (p *prefixTrie) get(network rnet.Network) (RangerEntry, error) {
-	if network.Covers(p.network) {
-		if entry := p.walkDepthOnce(); entry != nil {
-			return entry, nil
+	// fast pass: does this element match the requested network?
+	if p.network.Equal(network) {
+		return p.entry, nil
+	}
+
+	element := p
+	// do not modify original prefixTrie!
+	children := make([]*prefixTrie, len(p.children))
+	copy(children, p.children)
+
+	for {
+		// no remaning children left to search under.
+		if len(children) == 0 {
+			return p.entry, ErrNoExactMatch
 		}
-	} else if p.targetBitPosition() >= 0 {
-		bit, err := p.targetBitFromIP(network.Number)
-		if err != nil {
-			return nil, err
+
+		// reset element to next child, pop from slice, and then add
+		// all the new children contained to the list to process
+		element, children = children[0], children[1:]
+
+		// valid element?
+		if element == nil {
+			continue
 		}
-		child := p.children[bit]
-		if child != nil {
-			return child.get(network)
+
+		// exact network found
+		if network.Equal(element.network) {
+			return element.entry, nil
+		}
+
+		// add children to list to search through
+		for _, child := range element.children {
+			// add only if child could contain network
+			if child != nil && child.network.Covers(network) {
+				children = append(children, child)
+			}
 		}
 	}
-	return nil, nil
 }
 
 func (p *prefixTrie) childrenCount() int {
@@ -358,24 +397,4 @@ func (p *prefixTrie) walkDepth() <-chan RangerEntry {
 		close(entries)
 	}()
 	return entries
-}
-
-// walkDepthOnce walks the trie in depth order, stopping after the first result, for unit testing.
-func (p *prefixTrie) walkDepthOnce() RangerEntry {
-	if p.hasEntry() {
-		return p.entry
-	}
-	childEntriesList := []<-chan RangerEntry{}
-	for _, trie := range p.children {
-		if trie == nil {
-			continue
-		}
-		childEntriesList = append(childEntriesList, trie.walkDepth())
-	}
-	for _, childEntries := range childEntriesList {
-		for entry := range childEntries {
-			return entry
-		}
-	}
-	return nil
 }

@@ -70,6 +70,7 @@ type Ranger interface {
 	Insert(entry RangerEntry) error
 	Remove(network net.IPNet) (RangerEntry, error)
 	Get(network net.IPNet) (RangerEntry, error)
+	ContainsExact(network net.IPNet) (bool, error)
 	Contains(ip net.IP) (bool, error)
 	ContainingNetworks(ip net.IP) ([]RangerEntry, error)
 	CoveredNetworks(network net.IPNet) ([]RangerEntry, error)

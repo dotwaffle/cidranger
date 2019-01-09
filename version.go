@@ -45,6 +45,17 @@ func (v *versionedRanger) Get(network net.IPNet) (RangerEntry, error) {
 	return ranger.Get(network)
 }
 
+func (v *versionedRanger) ContainsExact(network net.IPNet) (bool, error) {
+	_, err := v.getRangerForIP(network.IP)
+	if err == ErrNoExactMatch {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (v *versionedRanger) Contains(ip net.IP) (bool, error) {
 	ranger, err := v.getRangerForIP(ip)
 	if err != nil {

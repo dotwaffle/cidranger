@@ -493,8 +493,34 @@ func TestPrefixTrieGet(t *testing.T) {
 			}
 			_, snet, _ := net.ParseCIDR(tc.search)
 			entry, err := trie.Get(*snet)
-			assert.NoError(t, err)
-			assert.Equal(t, expectedEntry, entry)
+			if tc.result != "" {
+				assert.NoError(t, err)
+				assert.Equal(t, expectedEntry, entry)
+			} else {
+				assert.Error(t, ErrNoExactMatch, err)
+			}
+		})
+	}
+}
+
+func TestPrefixTrieContainsExact(t *testing.T) {
+	for _, tc := range getNetworkTests {
+		t.Run(tc.name, func(t *testing.T) {
+			trie := newPrefixTree(tc.version)
+			for _, insert := range tc.inserts {
+				_, network, _ := net.ParseCIDR(insert)
+				err := trie.Insert(NewBasicRangerEntry(*network))
+				assert.NoError(t, err)
+			}
+			_, snet, _ := net.ParseCIDR(tc.search)
+			result, err := trie.ContainsExact(*snet)
+			if tc.result == "" {
+				assert.NoError(t, err)
+				assert.False(t, result)
+			} else {
+				assert.NoError(t, err)
+				assert.True(t, result)
+			}
 		})
 	}
 }

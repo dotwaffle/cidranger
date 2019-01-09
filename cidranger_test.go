@@ -22,7 +22,7 @@ func TestContainsAgainstBaseIPv4(t *testing.T) {
 	testContainsAgainstBase(t, 100000, randIPv4Gen)
 }
 
-func TestContainingNetworksAgaistBaseIPv4(t *testing.T) {
+func TestContainingNetworksAgainstBaseIPv4(t *testing.T) {
 	testContainingNetworksAgainstBase(t, 100000, randIPv4Gen)
 }
 
@@ -33,11 +33,11 @@ func TestCoveredNetworksAgainstBaseIPv4(t *testing.T) {
 // IPv6 spans an extremely large address space (2^128), randomly generated IPs
 // will often fall outside of the test ranges (AWS public CIDR blocks), so it
 // it more meaningful for testing to run from a curated list of IPv6 IPs.
-func TestContainsAgaistBaseIPv6(t *testing.T) {
+func TestContainsAgainstBaseIPv6(t *testing.T) {
 	testContainsAgainstBase(t, 100000, curatedAWSIPv6Gen)
 }
 
-func TestContainingNetworksAgaistBaseIPv6(t *testing.T) {
+func TestContainingNetworksAgainstBaseIPv6(t *testing.T) {
 	testContainingNetworksAgainstBase(t, 100000, curatedAWSIPv6Gen)
 }
 

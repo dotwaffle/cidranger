@@ -136,6 +136,14 @@ func (p *prefixTrie) CoveredNetworks(network net.IPNet) ([]RangerEntry, error) {
 	return p.coveredNetworks(net)
 }
 
+// MatchingNetworks returns the list of RangerEntry(s) the given ipnet
+// matches at least one common IP address.  That is, the networks that
+// are either have shorter, longer, or equal network prefixes.
+func (p *prefixTrie) MatchingNetworks(network net.IPNet) ([]RangerEntry, error) {
+	net := rnet.NewNetwork(network)
+	return p.matchingNetworks(net)
+}
+
 // String returns string representation of trie, mainly for visualization and
 // debugging.
 func (p *prefixTrie) String() string {
@@ -222,6 +230,55 @@ func (p *prefixTrie) coveredNetworks(network rnet.Network) ([]RangerEntry, error
 		}
 	}
 	return results, nil
+}
+
+func (p *prefixTrie) matchingNetworks(network rnet.Network) ([]RangerEntry, error) {
+	var results []RangerEntry
+
+	element := p
+	// do not modify original prefixTrie!
+	children := make([]*prefixTrie, len(p.children))
+	copy(children, p.children)
+
+	for {
+		// no remaning children left to search under.
+		if len(children) == 0 {
+			return results, nil
+		}
+
+		// reset element to next child, pop from slice, and then add
+		// all the new children contained to the list to process
+		element, children = children[0], children[1:]
+
+		// valid element?
+		if element == nil {
+			continue
+		}
+
+		// longer prefix found
+		if network.Covers(element.network) {
+			entries, err := element.coveredNetworks(network)
+			if err != nil {
+				return nil, err
+			}
+			results = append(results, entries...)
+			return results, nil
+		}
+
+		// shorter or equal prefix found
+		if element.network.Covers(network) {
+			if element.entry != nil {
+				results = append(results, element.entry)
+			}
+			// add children to list to search through
+			for _, child := range element.children {
+				// add only if child could contain network
+				if child != nil && child.network.Covers(network) {
+					children = append(children, child)
+				}
+			}
+		}
+	}
 }
 
 func (p *prefixTrie) insert(network rnet.Network, entry RangerEntry) error {

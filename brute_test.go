@@ -226,3 +226,54 @@ func TestCoveredNetworks(t *testing.T) {
 		})
 	}
 }
+
+func TestMatchingNetworks(t *testing.T) {
+	ranger := newBruteRanger().(*bruteRanger)
+	_, networkSuper, _ := net.ParseCIDR("192.168.0.0/24")
+	_, networkSub1, _ := net.ParseCIDR("192.168.0.0/25")
+	_, networkSub2, _ := net.ParseCIDR("192.168.0.128/25")
+	_, networkNot, _ := net.ParseCIDR("192.168.1.0/24")
+	_, networkBad, _ := net.ParseCIDR("192.168.2.0/24")
+
+	insertSuper := NewBasicRangerEntry(*networkSuper)
+	insertSub1 := NewBasicRangerEntry(*networkSub1)
+	insertSub2 := NewBasicRangerEntry(*networkSub2)
+	insertNot := NewBasicRangerEntry(*networkNot)
+
+	ranger.Insert(insertSuper)
+	ranger.Insert(insertSub1)
+	ranger.Insert(insertSub2)
+	ranger.Insert(insertNot)
+
+	resultsSuper := []RangerEntry{insertSuper, insertSub1, insertSub2}
+	matchSuper, err := ranger.MatchingNetworks(*networkSuper)
+	assert.NoError(t, err)
+	assert.Equal(t, sortEntries(resultsSuper), sortEntries(matchSuper))
+
+	resultsSub1 := []RangerEntry{insertSuper, insertSub1}
+	matchSub1, err := ranger.MatchingNetworks(*networkSub1)
+	assert.NoError(t, err)
+	assert.Equal(t, sortEntries(resultsSub1), sortEntries(matchSub1))
+
+	resultsSub2 := []RangerEntry{insertSuper, insertSub2}
+	matchSub2, err := ranger.MatchingNetworks(*networkSub2)
+	assert.NoError(t, err)
+	assert.Equal(t, sortEntries(resultsSub2), sortEntries(matchSub2))
+
+	resultsBad := []RangerEntry{}
+	matchBad, err := ranger.MatchingNetworks(*networkBad)
+	assert.NoError(t, err)
+	assert.Equal(t, sortEntries(resultsBad), sortEntries(matchBad))
+}
+
+func sortEntries(entries []RangerEntry) []RangerEntry {
+	sort.Slice(entries, func(i, j int) bool {
+		iNet := entries[i].Network()
+		jNet := entries[j].Network()
+		if iNet.String() < jNet.String() {
+			return true
+		}
+		return false
+	})
+	return entries
+}

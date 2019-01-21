@@ -133,6 +133,26 @@ func (b *bruteRanger) CoveredNetworks(network net.IPNet) ([]RangerEntry, error) 
 	return results, nil
 }
 
+// MatchingNetworks returns the list of RangerEntry(s) the given input matches
+// either as a covering prefix, or contained within the prefix.
+func (b *bruteRanger) MatchingNetworks(network net.IPNet) ([]RangerEntry, error) {
+	entries, err := b.getEntriesByVersion(network.IP)
+	if err != nil {
+		return nil, err
+	}
+	results := []RangerEntry{}
+	testNetwork := rnet.NewNetwork(network)
+	for _, entry := range entries {
+		entryNetwork := rnet.NewNetwork(entry.Network())
+		if testNetwork.Covers(entryNetwork) {
+			results = append(results, entry)
+		} else if entryNetwork.Covers(testNetwork) {
+			results = append(results, entry)
+		}
+	}
+	return results, nil
+}
+
 func (b *bruteRanger) getEntriesByVersion(ip net.IP) (map[string]RangerEntry, error) {
 	if ip.To4() != nil {
 		return b.ipV4Entries, nil

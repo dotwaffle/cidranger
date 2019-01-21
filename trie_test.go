@@ -470,6 +470,13 @@ var getNetworkTests = []getNetworkTest{
 	},
 	{
 		rnet.IPv4,
+		[]string{"192.168.0.0/23", "192.168.0.0/24", "192.168.0.0/25"},
+		"192.168.0.0/24",
+		"192.168.0.0/24",
+		"only exact prefix",
+	},
+	{
+		rnet.IPv4,
 		[]string{"192.168.0.0/24", "192.168.0.0/25"},
 		"192.168.0.0/26",
 		"",
@@ -521,6 +528,75 @@ func TestPrefixTrieContainsExact(t *testing.T) {
 				assert.NoError(t, err)
 				assert.True(t, result)
 			}
+		})
+	}
+}
+
+type matchingNetworkTest struct {
+	version rnet.IPVersion
+	inserts []string
+	search  string
+	results []string
+	name    string
+}
+
+var matchingNetworkTests = []matchingNetworkTest{
+	{
+		rnet.IPv4,
+		[]string{"192.168.0.0/24"},
+		"10.1.0.0/16",
+		[]string{},
+		"not a contained prefix",
+	},
+	{
+		rnet.IPv4,
+		[]string{"192.168.0.0/24", "192.168.0.0/25"},
+		"192.168.0.128/25",
+		[]string{"192.168.0.0/24"},
+		"only exact or longer prefix matches",
+	},
+	{
+		rnet.IPv4,
+		[]string{"192.168.1.0/24", "192.168.0.0/25"},
+		"192.168.0.0/25",
+		[]string{"192.168.0.0/25"},
+		"only exact or shorter prefix matches",
+	},
+	{
+		rnet.IPv4,
+		[]string{"192.168.0.0/23", "192.168.0.0/24", "192.168.0.0/25"},
+		"192.168.0.0/24",
+		[]string{"192.168.0.0/23", "192.168.0.0/24", "192.168.0.0/25"},
+		"all prefixes match",
+	},
+	{
+		rnet.IPv4,
+		[]string{"192.168.0.0/24", "192.168.0.0/25"},
+		"192.168.0.0/26",
+		[]string{"192.168.0.0/24", "192.168.0.0/25"},
+		"all supernet prefixes match",
+	},
+}
+
+func TestPrefixTrieMatching(t *testing.T) {
+	for _, tc := range matchingNetworkTests {
+		t.Run(tc.name, func(t *testing.T) {
+			trie := newPrefixTree(tc.version)
+			for _, insert := range tc.inserts {
+				_, network, _ := net.ParseCIDR(insert)
+				err := trie.Insert(NewBasicRangerEntry(*network))
+				assert.NoError(t, err)
+			}
+			var expectedEntries []RangerEntry
+			for _, result := range tc.results {
+				_, network, _ := net.ParseCIDR(result)
+				expectedEntry := NewBasicRangerEntry(*network)
+				expectedEntries = append(expectedEntries, expectedEntry)
+			}
+			_, snet, _ := net.ParseCIDR(tc.search)
+			entries, err := trie.MatchingNetworks(*snet)
+			assert.NoError(t, err)
+			assert.Equal(t, expectedEntries, entries)
 		})
 	}
 }
